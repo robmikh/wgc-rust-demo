@@ -2,28 +2,21 @@ winrt::import!(
     dependencies
         "os"
     modules
-        "windows.foundation.collections"
-        "windows.foundation.numerics"
-        "windows.ui"
-        "windows.ui.composition"
-        "windows.ui.composition.desktop"
         "windows.graphics"
         "windows.graphics.capture"
         "windows.graphics.directx"
         "windows.graphics.directx.direct3d11"
-        "windows.system"
 );
 
 mod capture;
 mod d3d;
+mod encoder;
 mod roapi;
 
 use d3d::{D3D11Device, D3D11Texture2D};
 use roapi::{ro_initialize, RoInitType};
 use std::sync::mpsc::channel;
-use winapi::um::d3d11::{
-    D3D11_CPU_ACCESS_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_USAGE_STAGING,
-};
+use winapi::um::d3d11::{D3D11_CPU_ACCESS_READ, D3D11_USAGE_STAGING};
 use winapi::um::winuser::{GetDesktopWindow, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY};
 
 use crate::windows::graphics::capture::Direct3D11CaptureFramePool;
@@ -62,7 +55,7 @@ fn run() -> winrt::Result<()> {
             let frame = frame_pool.try_get_next_frame()?;
             let surface = frame.surface()?;
 
-            let frame_texture = D3D11Texture2D::from_direct3d_surface(surface)?;
+            let frame_texture = D3D11Texture2D::from_direct3d_surface(&surface)?;
 
             // Make a copy of the texture
             let mut desc = frame_texture.get_desc();
@@ -91,40 +84,10 @@ fn run() -> winrt::Result<()> {
     println!("We got the frame!");
     // Wait for our texture to come
     let texture = receiver.recv().unwrap();
-    let width = item_size.width as u32;
-    let height = item_size.height as u32;
-
-    println!("Copying the bits...");
-    // Map it and copy the data
-    let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-    d3d_context.map(&texture, 0, D3D11_MAP_READ, 0, &mut mapped)?;
-
-    // Get a slice of bytes
-    let slice: &[u8] = unsafe {
-        std::slice::from_raw_parts(
-            mapped.pData as *const _,
-            (height * mapped.RowPitch) as usize,
-        )
-    };
-
-    let mut data = vec![0u8; ((width * height) * 4) as usize];
-    for row in 0..height {
-        let data_begin = (row * (width * 4)) as usize;
-        let data_end = ((row + 1) * (width * 4)) as usize;
-        let slice_begin = (row * mapped.RowPitch) as usize;
-        let slice_end = slice_begin + (width * 4) as usize;
-        data[data_begin..data_end].copy_from_slice(&slice[slice_begin..slice_end]);
-    }
-
-    d3d_context.unmap(&texture, 0);
+    let surface = texture.to_direct3d_surface()?;
 
     println!("Saving file...");
-    // The image crate doesn't seem to support saving bgra8 :(
-    let image: image::ImageBuffer<image::Bgra<u8>, _> =
-        image::ImageBuffer::from_raw(width, height, data).unwrap();
-    let dynamic_image = image::DynamicImage::ImageBgra8(image);
-    let dynamic_image = dynamic_image.to_rgba();
-    dynamic_image.save("screenshot.png").unwrap();
+    encoder::save_d3d_surface(&device, &surface, "screenshot.png")?;
 
     Ok(())
 }

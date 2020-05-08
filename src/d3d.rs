@@ -172,6 +172,11 @@ pub enum D3DDriverType {
 }
 
 impl D3D11Device {
+    pub fn from_direct3d_device(device: &IDirect3DDevice) -> winrt::Result<Self> {
+        let access: Direct3DDxgiInterfaceAccess = device.try_into()?;
+        access.get_interface()
+    }
+
     pub fn new_of_type(driver_type: D3DDriverType) -> winrt::Result<Self> {
         let flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
         let device = unsafe {
@@ -339,9 +344,24 @@ impl D3D11DeviceContext {
 }
 
 impl D3D11Texture2D {
-    pub fn from_direct3d_surface(surface: IDirect3DSurface) -> winrt::Result<Self> {
+    pub fn from_direct3d_surface(surface: &IDirect3DSurface) -> winrt::Result<Self> {
         let access: Direct3DDxgiInterfaceAccess = surface.try_into()?;
         access.get_interface()
+    }
+
+    pub fn to_direct3d_surface(&self) -> winrt::Result<IDirect3DSurface> {
+        let this = self.ptr.abi();
+        if this.is_null() {
+            panic!("`this` was null");
+        }
+
+        unsafe {
+            let dxgi_surface: DXGISurface = self.try_into()?;
+            let mut result: IDirect3DSurface = std::mem::zeroed();
+            CreateDirect3D11SurfaceFromDXGISurface(dxgi_surface.ptr.abi(), result.set_abi())
+                .ok()?;
+            Ok(result)
+        }
     }
 
     pub fn get_desc(&self) -> D3D11_TEXTURE2D_DESC {
@@ -368,7 +388,7 @@ fn test_d3d_device() -> winrt::Result<()> {
     let device = d3d_device.to_direct3d_device()?;
 
     // The frame pool will create d3d textures
-    let frame_pool = Direct3D11CaptureFramePool::create_free_threaded(
+    let _frame_pool = Direct3D11CaptureFramePool::create_free_threaded(
         &device,
         DirectXPixelFormat::B8G8R8A8UIntNormalized,
         1,
