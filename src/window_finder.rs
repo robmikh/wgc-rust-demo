@@ -1,18 +1,16 @@
 use winapi::{
     shared::{
+        minwindef::{BOOL, DWORD, LPARAM},
         windef::HWND,
-        minwindef::{LPARAM, BOOL, DWORD},
     },
     um::{
-        winuser::{
-            EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetClassNameW, 
-            GetShellWindow, IsWindowVisible, GetAncestor, GA_ROOT, GetWindowLongW,
-            GWL_STYLE, GWL_EXSTYLE, WS_DISABLED, WS_EX_TOOLWINDOW
-        },
-        wincon::{
-            GetConsoleTitleW, SetConsoleTitleW
-        },
         dwmapi::{DwmGetWindowAttribute, DWMWA_CLOAKED, DWM_CLOAKED_SHELL},
+        wincon::{GetConsoleTitleW, SetConsoleTitleW},
+        winuser::{
+            EnumWindows, GetAncestor, GetClassNameW, GetShellWindow, GetWindowLongW,
+            GetWindowTextLengthW, GetWindowTextW, IsWindowVisible, GA_ROOT, GWL_EXSTYLE, GWL_STYLE,
+            WS_DISABLED, WS_EX_TOOLWINDOW,
+        },
     },
 };
 
@@ -24,21 +22,15 @@ pub struct WindowInfo {
 }
 
 fn get_shell_window() -> HWND {
-    unsafe {
-        GetShellWindow()
-    }
+    unsafe { GetShellWindow() }
 }
 
 fn is_window_visible(window: HWND) -> bool {
-    unsafe {
-        IsWindowVisible(window) == 1
-    }
+    unsafe { IsWindowVisible(window) == 1 }
 }
 
 fn is_root_window(window: HWND) -> bool {
-    unsafe {
-        GetAncestor(window, GA_ROOT) == window
-    }
+    unsafe { GetAncestor(window, GA_ROOT) == window }
 }
 
 fn match_title_and_class_name(window: &WindowInfo, title: &str, class_name: &str) -> bool {
@@ -46,41 +38,46 @@ fn match_title_and_class_name(window: &WindowInfo, title: &str, class_name: &str
 }
 
 fn is_known_blocked_window(window: &WindowInfo) -> bool {
-    match_title_and_class_name(window, "Task View", "Windows.UI.Core.CoreWindow") ||
-    match_title_and_class_name(window, "DesktopWindowXamlSource", "Windows.UI.Core.CoreWindow") ||
-    match_title_and_class_name(window, "PopupHost", "Xaml_WindowedPopupClass")
+    match_title_and_class_name(window, "Task View", "Windows.UI.Core.CoreWindow")
+        || match_title_and_class_name(
+            window,
+            "DesktopWindowXamlSource",
+            "Windows.UI.Core.CoreWindow",
+        )
+        || match_title_and_class_name(window, "PopupHost", "Xaml_WindowedPopupClass")
 }
 
 fn is_capturable_window(window: &WindowInfo) -> bool {
-    if window.title.is_empty() || window.handle == get_shell_window() || 
-        !is_window_visible(window.handle) || !is_root_window(window.handle) 
+    if window.title.is_empty()
+        || window.handle == get_shell_window()
+        || !is_window_visible(window.handle)
+        || !is_root_window(window.handle)
     {
         return false;
     }
 
-    let style = unsafe {
-        GetWindowLongW(window.handle, GWL_STYLE) as u32
-    };
+    let style = unsafe { GetWindowLongW(window.handle, GWL_STYLE) as u32 };
     if style & WS_DISABLED > 0 {
         return false;
     }
 
-    let ex_style = unsafe {
-        GetWindowLongW(window.handle, GWL_EXSTYLE) as u32
-    };
+    let ex_style = unsafe { GetWindowLongW(window.handle, GWL_EXSTYLE) as u32 };
     if ex_style & WS_EX_TOOLWINDOW > 0 {
         return false;
     }
 
-    if window.class_name == "Windows.UI.Core.CoreWindow" || window.class_name == "ApplicationFrameWindow" {
+    if window.class_name == "Windows.UI.Core.CoreWindow"
+        || window.class_name == "ApplicationFrameWindow"
+    {
         let mut cloaked = 0;
         let result = unsafe {
             winrt::ErrorCode(DwmGetWindowAttribute(
-                window.handle, 
+                window.handle,
                 DWMWA_CLOAKED,
                 &mut cloaked as *mut _ as *mut _,
                 std::mem::size_of::<DWORD>() as u32,
-            )).ok()
+            ))
+            .ok()
         };
         if let Ok(_) = result {
             if cloaked == DWM_CLOAKED_SHELL {
@@ -96,23 +93,28 @@ fn is_capturable_window(window: &WindowInfo) -> bool {
     return true;
 }
 
-extern "system"
-fn enum_window(handle: HWND, lparam: LPARAM) -> BOOL {
-    let window_text_length = unsafe {
-        GetWindowTextLengthW(handle)
-    };
+extern "system" fn enum_window(handle: HWND, lparam: LPARAM) -> BOOL {
+    let window_text_length = unsafe { GetWindowTextLengthW(handle) };
     if window_text_length > 0 {
         let window_text = unsafe {
             let window_text_length = window_text_length + 1;
             let mut text_array = vec![0u16; window_text_length as usize];
-            GetWindowTextW(handle, text_array.as_mut_ptr() as *mut _, window_text_length);
-            std::string::String::from_utf16_lossy(&text_array).trim_matches(char::from(0)).to_string()
+            GetWindowTextW(
+                handle,
+                text_array.as_mut_ptr() as *mut _,
+                window_text_length,
+            );
+            std::string::String::from_utf16_lossy(&text_array)
+                .trim_matches(char::from(0))
+                .to_string()
         };
         let class_name = unsafe {
             let class_text_length: i32 = 256;
             let mut text_array = vec![0u16; class_text_length as usize];
             GetClassNameW(handle, text_array.as_mut_ptr() as *mut _, class_text_length);
-            std::string::String::from_utf16_lossy(&text_array).trim_matches(char::from(0)).to_string()
+            std::string::String::from_utf16_lossy(&text_array)
+                .trim_matches(char::from(0))
+                .to_string()
         };
         let info = WindowInfo {
             handle: handle,
@@ -139,7 +141,9 @@ fn get_capturable_windows() -> Vec<WindowInfo> {
         let console_title_length: u32 = 256;
         let mut text_array = vec![0u16; console_title_length as usize];
         GetConsoleTitleW(text_array.as_mut_ptr() as *mut _, console_title_length);
-        std::string::String::from_utf16_lossy(&text_array).trim_matches(char::from(0)).to_string()
+        std::string::String::from_utf16_lossy(&text_array)
+            .trim_matches(char::from(0))
+            .to_string()
     };
 
     unsafe {
@@ -149,7 +153,7 @@ fn get_capturable_windows() -> Vec<WindowInfo> {
         SetConsoleTitleW(new_console_title.as_mut_ptr() as *mut _);
     };
     let duration = std::time::Duration::from_millis(40);
-    std::thread::sleep(duration);    
+    std::thread::sleep(duration);
 
     let mut window_list = Vec::<WindowInfo>::new();
     let result = unsafe { EnumWindows(Some(enum_window), &mut window_list as *mut _ as _) };

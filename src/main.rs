@@ -10,18 +10,22 @@ winrt::import!(
 
 mod capture;
 mod d3d;
+mod displays;
 mod encoder;
 mod roapi;
 mod snapshot;
 mod window_finder;
 
+use clap::{value_t, App, Arg, ArgMatches};
 use d3d::D3D11Device;
+use displays::enumerate_displays;
 use roapi::{ro_initialize, RoInitType};
 use snapshot::CaptureSnapshot;
-use window_finder::find_window;
-use winapi::um::winuser::{GetDesktopWindow, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY, GetWindowThreadProcessId};
-use clap::{Arg, App, ArgMatches, value_t};
 use std::io::Write;
+use winapi::um::winuser::{
+    GetDesktopWindow, GetWindowThreadProcessId, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY,
+};
+use window_finder::find_window;
 
 use windows::graphics::capture::GraphicsCaptureItem;
 
@@ -81,9 +85,13 @@ fn get_capture_item_from_matches(matches: &ArgMatches) -> winrt::Result<Graphics
                 println!("No window matching '{}' found!", query);
                 std::process::exit(1);
             } else if windows.len() == 1 {
-                windows[0].clone()
+                &windows[0]
             } else {
-                println!("{} windows found matching '{}', please select one:", windows.len(), query);
+                println!(
+                    "{} windows found matching '{}', please select one:",
+                    windows.len(),
+                    query
+                );
                 println!("    Num       PID    Window Title");
                 for (i, window) in windows.iter().enumerate() {
                     let mut pid = 0;
@@ -107,7 +115,7 @@ fn get_capture_item_from_matches(matches: &ArgMatches) -> winrt::Result<Graphics
                             } else {
                                 None
                             }
-                        },
+                        }
                         _ => None,
                     };
                     if let Some(selection) = selection {
@@ -117,14 +125,25 @@ fn get_capture_item_from_matches(matches: &ArgMatches) -> winrt::Result<Graphics
                         println!("Invalid input, '{}'!", input);
                         continue;
                     };
-                };
-                windows[index].clone()
+                }
+                &windows[index]
             }
         };
         capture::create_capture_item_for_window(window.handle)?
     } else if matches.is_present("monitor") {
-        let _id = value_t!(matches, "monitor", u32).unwrap();
-        unimplemented!("Specific monitor capture not implemented!");
+        let id = value_t!(matches, "monitor", u32).unwrap();
+        let displays = enumerate_displays();
+        if id <= 0 {
+            println!("Invalid input, ids start with 1.");
+            std::process::exit(1);
+        }
+        let index = (id - 1) as usize;
+        if index >= displays.len() {
+            println!("Invalid input, id is higher than the number of displays!");
+            std::process::exit(1);
+        }
+        let display = &displays[index];
+        capture::create_capture_item_for_monitor(display.handle)?
     } else {
         let monitor = unsafe { MonitorFromWindow(GetDesktopWindow(), MONITOR_DEFAULTTOPRIMARY) };
         capture::create_capture_item_for_monitor(monitor)?
