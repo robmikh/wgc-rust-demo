@@ -73,7 +73,7 @@ fn run() -> winrt::Result<()> {
             desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
             desc.MiscFlags = 0;
             let copy_texture = d3d_device.create_texture_2d(&desc, None)?;
-            d3d_context.copy_texture_2d(&copy_texture, &frame_texture);
+            d3d_context.copy_resource(&copy_texture, &frame_texture);
 
             // End the capture
             session.close()?;
@@ -98,7 +98,7 @@ fn run() -> winrt::Result<()> {
     println!("Copying the bits...");
     // Map it and copy the data
     let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-    d3d_context.map_texture_2d(&texture, 0, D3D11_MAP_READ, 0, &mut mapped)?;
+    d3d_context.map(&texture, 0, D3D11_MAP_READ, 0, &mut mapped)?;
 
     // Get a slice of bytes
     let slice: &[u8] = unsafe {
@@ -117,7 +117,7 @@ fn run() -> winrt::Result<()> {
         data[data_begin..data_end].copy_from_slice(&slice[slice_begin..slice_end]);
     }
 
-    d3d_context.unmap_texture_2d(&texture, 0);
+    d3d_context.unmap(&texture, 0);
 
     println!("Saving file...");
     // The image crate doesn't seem to support saving bgra8 :(

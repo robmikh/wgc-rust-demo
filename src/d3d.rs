@@ -10,7 +10,7 @@ use winapi::{
         d3d11::{
             D3D11CreateDevice, ID3D11DeviceContextVtbl, ID3D11DeviceVtbl, ID3D11Texture2DVtbl,
             D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAP, D3D11_MAPPED_SUBRESOURCE,
-            D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC,
+            D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, ID3D11Resource
         },
         d3dcommon::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP},
     },
@@ -138,6 +138,17 @@ unsafe impl winrt::ComInterface for DXGIDevice {
     );
 }
 
+pub trait D3D11Resource {
+    fn get_d3d_resource(&self) -> *mut ID3D11Resource;
+}
+
+impl D3D11Resource for D3D11Texture2D {
+    fn get_d3d_resource(&self) -> *mut ID3D11Resource {
+        let this = self.ptr.abi();
+        this as *mut _
+    }
+}
+
 #[link(name = "d3d11")]
 extern "stdcall" {
     fn CreateDirect3D11DeviceFromDXGIDevice(
@@ -261,10 +272,9 @@ impl D3D11Device {
 }
 
 impl D3D11DeviceContext {
-    // TODO: Find some way to support all resource types without different methods
-    pub fn map_texture_2d(
+    pub fn map(
         &self,
-        texture: &D3D11Texture2D,
+        resource: &dyn D3D11Resource,
         subresource: u32,
         map_type: D3D11_MAP,
         map_flags: u32,
@@ -275,15 +285,15 @@ impl D3D11DeviceContext {
             panic!("`this` was null");
         }
 
-        let texture = texture.ptr.abi();
-        if texture.is_null() {
-            panic!("'texture' was null");
+        let resource = resource.get_d3d_resource();
+        if resource.is_null() {
+            panic!("'resource' was null");
         }
 
         unsafe {
             winrt::ErrorCode(((*(*(this))).Map)(
                 this as *mut _,
-                texture as *mut _,
+                resource,
                 subresource,
                 map_type,
                 map_flags,
@@ -295,42 +305,40 @@ impl D3D11DeviceContext {
         Ok(())
     }
 
-    // TODO: Find some way to support all resource types without different methods
-    pub fn unmap_texture_2d(&self, texture: &D3D11Texture2D, subresource: u32) {
+    pub fn unmap(&self, resource: &dyn D3D11Resource, subresource: u32) {
         let this = self.ptr.abi();
         if this.is_null() {
             panic!("`this` was null");
         }
 
-        let texture = texture.ptr.abi();
-        if texture.is_null() {
-            panic!("'texture' was null");
+        let resource = resource.get_d3d_resource();
+        if resource.is_null() {
+            panic!("'resource' was null");
         }
 
         unsafe {
-            ((*(*(this))).Unmap)(this as *mut _, texture as *mut _, subresource);
+            ((*(*(this))).Unmap)(this as *mut _, resource, subresource);
         };
     }
 
-    // TODO: Find some way to support all resource types without different methods
-    pub fn copy_texture_2d(&self, dest: &D3D11Texture2D, src: &D3D11Texture2D) {
+    pub fn copy_resource(&self, dest: &dyn D3D11Resource, src: &dyn D3D11Resource) {
         let this = self.ptr.abi();
         if this.is_null() {
             panic!("`this` was null");
         }
 
-        let dest = dest.ptr.abi();
+        let dest = dest.get_d3d_resource();
         if dest.is_null() {
             panic!("'dest' was null");
         }
 
-        let src = src.ptr.abi();
+        let src = src.get_d3d_resource();
         if src.is_null() {
             panic!("'src' was null");
         }
 
         unsafe {
-            ((*(*(this))).CopyResource)(this as *mut _, dest as *mut _, src as *mut _);
+            ((*(*(this))).CopyResource)(this as *mut _, dest, src);
         };
     }
 }
@@ -426,7 +434,7 @@ fn test_d3d_texture_2d() -> winrt::Result<()> {
 
     // Lock and read the texture, verifying it has red pixels
     let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-    d3d_context.map_texture_2d(&texture, 0, D3D11_MAP_READ, 0, &mut mapped)?;
+    d3d_context.map(&texture, 0, D3D11_MAP_READ, 0, &mut mapped)?;
 
     // Get a slice of bytes
     let slice: &[u8] = unsafe {
@@ -447,7 +455,7 @@ fn test_d3d_texture_2d() -> winrt::Result<()> {
     assert_eq!(slice[offset + 2], 255);
     assert_eq!(slice[offset + 3], 255);
 
-    d3d_context.unmap_texture_2d(&texture, 0);
+    d3d_context.unmap(&texture, 0);
 
     Ok(())
 }
