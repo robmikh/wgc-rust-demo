@@ -16,14 +16,13 @@ winrt::import!(
 
 mod capture;
 mod d3d;
-mod interop;
+mod roapi;
 
 use d3d::{D3D11Device, D3D11Texture2D};
-use interop::{create_dispatcher_queue_controller_for_current_thread, ro_initialize, RoInitType};
+use roapi::{ro_initialize, RoInitType};
 use std::sync::mpsc::channel;
 use winapi::um::d3d11::{
-    D3D11_CPU_ACCESS_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_SUBRESOURCE_DATA,
-    D3D11_USAGE_STAGING,
+    D3D11_CPU_ACCESS_READ, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_USAGE_STAGING,
 };
 use winapi::um::winuser::{GetDesktopWindow, MonitorFromWindow, MONITOR_DEFAULTTOPRIMARY};
 

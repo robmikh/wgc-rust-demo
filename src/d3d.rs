@@ -1,21 +1,16 @@
 use crate::windows::graphics::directx::direct3d11::{IDirect3DDevice, IDirect3DSurface};
-use crate::windows::graphics::directx::DirectXPixelFormat;
-use std::ffi::c_void;
 use winapi::{
     shared::{
         dxgi::{IDXGIDeviceVtbl, IDXGISurfaceVtbl},
         winerror::DXGI_ERROR_UNSUPPORTED,
     },
-    um::{
-        d3d11::{
-            D3D11CreateDevice, ID3D11DeviceContextVtbl, ID3D11DeviceVtbl, ID3D11Texture2DVtbl,
-            D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAP, D3D11_MAPPED_SUBRESOURCE,
-            D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC, ID3D11Resource
-        },
-        d3dcommon::{D3D_DRIVER_TYPE, D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP},
+    um::d3d11::{
+        D3D11CreateDevice, ID3D11DeviceContextVtbl, ID3D11DeviceVtbl, ID3D11Resource,
+        ID3D11Texture2DVtbl, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAP, D3D11_MAPPED_SUBRESOURCE,
+        D3D11_SDK_VERSION, D3D11_SUBRESOURCE_DATA, D3D11_TEXTURE2D_DESC,
     },
 };
-use winrt::{Guid, IUnknown, RuntimeType, TryInto};
+use winrt::{Guid, RuntimeType, TryInto};
 
 #[repr(C)]
 pub struct abi_IDirect3DDxgiInterfaceAccess {
