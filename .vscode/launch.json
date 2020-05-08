@@ -6,11 +6,11 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/wgc-rust-demo.exe",
-            "args": [],
+            "args": [ "-w", "Visual Studio Code" ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
-            "externalConsole": false
+            "externalConsole": true
         }
     ]
 }

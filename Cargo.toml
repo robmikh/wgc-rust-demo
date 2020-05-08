@@ -6,5 +6,7 @@ edition = "2018"
 
 [dependencies]
 winrt = { git = "https://github.com/microsoft/winrt-rs" }
-winapi = { version = "0.3.8", features = [ "std", "winuser", "d3d11", "d2d1", "dxgi", "d3dcommon", "impl-default" ] }
+winapi = { version = "0.3.8", features = [ "std", "winuser", "d3d11", "d2d1", "dxgi", "d3dcommon", "impl-default", "dwmapi", "wincon" ] }
 image = "0.23.4"
+uuid = { version = "0.8", features = ["v4"] }
+clap = "2.33.0"
