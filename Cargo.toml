@@ -1,0 +1,10 @@
+[package]
+name = "wgc-rust-demo"
+version = "0.1.0"
+authors = ["Robert Mikhayelyan <rob.mikh@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+winrt = { git = "https://github.com/microsoft/winrt-rs" }
+winapi = { version = "0.3.8", features = [ "std", "winuser", "d3d11", "d2d1", "dxgi", "d3dcommon", "impl-default" ] }
+image = "0.23.4"
